@@ -1,31 +1,39 @@
+// requires
 const express = require("express");
 const app = express();
 let http = require("http").Server(app);
-let minimist = require("minimist");
 let io = require("socket.io")(http);
-const kurento = require("kurento-client");
-const { SocketAddress } = require("net");
+let kurento = require("kurento-client");
+let minimist = require("minimist");
 
+// variables
 let kurentoClient = null;
 let iceCandidateQueues = {};
 
-var argv = minimist(process.argv.slice(2), {
+// constants
+let argv = minimist(process.argv.slice(2), {
   default: {
-    as_uri: "http://localhost:3000",
+    as_uri: "http://localhost:3000/",
     ws_uri: "ws://localhost:8888/kurento",
   },
 });
 
-io.on("connection", (socket) => {
-  socket.on("message", (message) => {
+// signaling
+io.on("connection", function (socket) {
+  console.log("a user connected");
+
+  socket.on("message", function (message) {
+    console.log("Message received: ", message.event);
+
     switch (message.event) {
       case "joinRoom":
-        joinRoom(socket, message.userName, message.room, (err) => {
+        joinRoom(socket, message.userName, message.roomName, (err) => {
           if (err) {
             console.log(err);
           }
         });
         break;
+
       case "receiveVideoFrom":
         receiveVideoFrom(
           socket,
@@ -39,6 +47,7 @@ io.on("connection", (socket) => {
           }
         );
         break;
+
       case "candidate":
         addIceCandidate(
           socket,
@@ -56,8 +65,9 @@ io.on("connection", (socket) => {
   });
 });
 
-function joinRoom(socket, userName, roomName, callback) {
-  getRoom(socket, roomName, (err, myRoom) => {
+// signaling functions
+function joinRoom(socket, username, roomname, callback) {
+  getRoom(socket, roomname, (err, myRoom) => {
     if (err) {
       return callback(err);
     }
@@ -69,15 +79,18 @@ function joinRoom(socket, userName, roomName, callback) {
 
       let user = {
         id: socket.id,
-        name: userName,
+        name: username,
         outgoingMedia: outgoingMedia,
         incomingMedia: {},
       };
 
       let iceCandidateQueue = iceCandidateQueues[user.id];
       if (iceCandidateQueue) {
-        while (iceCandidateQueues.length) {
+        while (iceCandidateQueue.length) {
           let ice = iceCandidateQueue.shift();
+          console.error(
+            `user: ${user.name} collect candidate for outgoing media`
+          );
           user.outgoingMedia.addIceCandidate(ice.candidate);
         }
       }
@@ -89,29 +102,28 @@ function joinRoom(socket, userName, roomName, callback) {
         socket.emit("message", {
           event: "candidate",
           userid: user.id,
-          candidate,
+          candidate: candidate,
         });
       });
 
-      socket.to(roomName).emit("message", {
+      socket.to(roomname).emit("message", {
         event: "newParticipantArrived",
         userid: user.id,
-        userName: user.name,
+        username: user.name,
       });
 
       let existingUsers = [];
       for (let i in myRoom.participants) {
-        if (myRoom.participants[i].id !== user.id) {
+        if (myRoom.participants[i].id != user.id) {
           existingUsers.push({
             id: myRoom.participants[i].id,
             name: myRoom.participants[i].name,
           });
         }
       }
-
       socket.emit("message", {
         event: "existingParticipants",
-        existingUsers,
+        existingUsers: existingUsers,
         userid: user.id,
       });
 
@@ -120,30 +132,74 @@ function joinRoom(socket, userName, roomName, callback) {
   });
 }
 
-function getKurentoClient(callback) {
-  if (kurentoClient !== null) {
-    return callback(null, kurentoClient);
-  }
-
-  kurento(argv.ws_uri, (err, _kurentoClient) => {
+function receiveVideoFrom(socket, userid, roomname, sdpOffer, callback) {
+  getEndpointForUser(socket, roomname, userid, (err, endpoint) => {
     if (err) {
-      console.log(err);
       return callback(err);
     }
-    kurentoClient = _kurentoClient;
-    callback(null, kurentoClient);
+
+    endpoint.processOffer(sdpOffer, (err, sdpAnswer) => {
+      if (err) {
+        return callback(err);
+      }
+
+      socket.emit("message", {
+        event: "receiveVideoAnswer",
+        senderid: userid,
+        sdpAnswer: sdpAnswer,
+      });
+
+      endpoint.gatherCandidates((err) => {
+        if (err) {
+          return callback(err);
+        }
+      });
+    });
   });
 }
 
-function getRoom(socket, roomName, callback) {
-  let myRoom = io.sockets.adapter.rooms[roomName] || { length: 0 };
+function addIceCandidate(socket, senderid, roomname, iceCandidate, callback) {
+  let user = io.sockets.adapter.rooms[roomname].participants[socket.id];
+  if (user != null) {
+    let candidate = kurento.register.complexTypes.IceCandidate(iceCandidate);
+    if (senderid == user.id) {
+      if (user.outgoingMedia) {
+        user.outgoingMedia.addIceCandidate(candidate);
+      } else {
+        iceCandidateQueues[user.id].push({ candidate: candidate });
+      }
+    } else {
+      if (user.incomingMedia[senderid]) {
+        user.incomingMedia[senderid].addIceCandidate(candidate);
+      } else {
+        if (!iceCandidateQueues[senderid]) {
+          iceCandidateQueues[senderid] = [];
+        }
+        iceCandidateQueues[senderid].push({ candidate: candidate });
+      }
+    }
+    callback(null);
+  } else {
+    callback(new Error("addIceCandidate failed"));
+  }
+}
+
+// useful functions
+function getRoom(socket, roomname, callback) {
+  let myRoom = io.sockets.adapter.rooms[roomname] || { length: 0 };
   let numClients = myRoom.length;
 
-  if (numClients === 0) {
-    socket.join(roomName, () => {
-      myRoom = io.sockets.adapter.rooms[roomName];
-      getKurentoClient((err, kurento) => {
+  console.log(roomname, " has ", numClients, " clients");
+
+  if (numClients == 0) {
+    socket.join(roomname, () => {
+      myRoom = io.sockets.adapter.rooms[roomname];
+      getKurentoClient((error, kurento) => {
         kurento.create("MediaPipeline", (err, pipeline) => {
+          if (error) {
+            return callback(err);
+          }
+
           myRoom.pipeline = pipeline;
           myRoom.participants = {};
           callback(null, myRoom);
@@ -151,13 +207,13 @@ function getRoom(socket, roomName, callback) {
       });
     });
   } else {
-    socket.join(roomName);
+    socket.join(roomname);
     callback(null, myRoom);
   }
 }
 
-function getEndpointForUser(socket, roomName, senderid, callback) {
-  let myRoom = io.sockets.adapter.rooms[roomName];
+function getEndpointForUser(socket, roomname, senderid, callback) {
+  let myRoom = io.sockets.adapter.rooms[roomname];
   let asker = myRoom.participants[socket.id];
   let sender = myRoom.participants[senderid];
 
@@ -167,7 +223,9 @@ function getEndpointForUser(socket, roomName, senderid, callback) {
 
   if (asker.incomingMedia[sender.id]) {
     sender.outgoingMedia.connect(asker.incomingMedia[sender.id], (err) => {
-      if (err) return callback(err);
+      if (err) {
+        return callback(err);
+      }
       callback(null, asker.incomingMedia[sender.id]);
     });
   } else {
@@ -178,81 +236,63 @@ function getEndpointForUser(socket, roomName, senderid, callback) {
 
       asker.incomingMedia[sender.id] = incoming;
 
-      let iceCandidateQueues = iceCandidateQueues[sender.id];
-      if (iceCandidateQueues) {
-        while (iceCandidateQueues.length) {
-          let ice = iceCandidateQueues.shift();
-          user.outgoingMedia.addIceCandidate(ice.candidate);
+      let iceCandidateQueue = iceCandidateQueues[sender.id];
+      if (iceCandidateQueue) {
+        while (iceCandidateQueue.length) {
+          let ice = iceCandidateQueue.shift();
+          console.error(
+            `user: ${sender.name} collect candidate for outgoing media`
+          );
+          incoming.addIceCandidate(ice.candidate);
         }
       }
 
-      user.outgoingMedia.on("OnIceCandidate", (event) => {
+      incoming.on("OnIceCandidate", (event) => {
         let candidate = kurento.register.complexTypes.IceCandidate(
           event.candidate
         );
         socket.emit("message", {
           event: "candidate",
           userid: sender.id,
-          candidate,
+          candidate: candidate,
         });
       });
 
       sender.outgoingMedia.connect(incoming, (err) => {
-        if (err) return callback(err);
+        if (err) {
+          return callback(err);
+        }
         callback(null, incoming);
       });
     });
   }
 }
 
-function receiveVideoFrom(socket, roomName, userid, sdpOffer, callback) {
-  getEndpointForUser(socket, roomName, userid, (err, endpoint) => {
-    if (err) return callback(err);
+function getKurentoClient(callback) {
+  if (kurentoClient !== null) {
+    return callback(null, kurentoClient);
+  }
 
-    endpoint.processOffer(sdpOffer, (err, sdpAnswer) => {
-      if (err) return callback(err);
+  kurento(argv.ws_uri, function (error, _kurentoClient) {
+    if (error) {
+      console.log("Could not find media server at address " + argv.ws_uri);
+      return callback(
+        "Could not find media server at address" +
+          argv.ws_uri +
+          ". Exiting with error " +
+          error
+      );
+    }
 
-      socket.emit("message", {
-        event: "receiveVideoAnswer",
-        senderid: userid,
-        sdpAnswer,
-      });
-
-      endpoint.gatherCandidates((err) => {
-        if (err) return callback(err);
-      });
-    });
+    kurentoClient = _kurentoClient;
+    callback(null, kurentoClient);
   });
 }
 
-function addIceCandidate(socket, senderid, roomName, iceCandidate, callback) {
-  let user = io.sockers.adapter.rooms[roomName].participants[socket.id];
-  if (user != null) {
-    let candidate = kurento.register.complexTypes.IceCandidate(iceCandidate);
-    if (senderid === user.id) {
-      if (user.outgoingMedia) {
-        user.outgoingMedia.addIceCandidate(candidate);
-      } else {
-        iceCandidateQueues[user.id].push({ candidate });
-      }
-    } else {
-      if (user.incomingMedia[senderid]) {
-        user.incomingMedia[senderid].addIceCandidate(candidate);
-      } else {
-        if (!iceCandidateQueues[senderid]) {
-          iceCandidateQueues[senderid] = [];
-        }
-        iceCandidateQueues[senderid].push({ candidate });
-      }
-      callback(null);
-    }
-  } else {
-    callback(new Error("aaddIceCandidate failed"));
-  }
-}
-
+// express routing
 app.use(express.static("public"));
 
-http.listen(3000, () => {
-  console.log("Server listen on http://localhost:3000");
+// listen
+http.listen(3000, function () {
+  console.log("Server listen on http://localhost:3000/");
 });

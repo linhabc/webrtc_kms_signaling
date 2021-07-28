@@ -1,3 +1,4 @@
+// getting dom elements
 let divRoomSelection = document.getElementById("roomSelection");
 let divMeetingRoom = document.getElementById("meetingRoom");
 let inputRoom = document.getElementById("room");
@@ -9,32 +10,34 @@ let roomName;
 let userName;
 let participants = {};
 
+// Main
 let socket = io();
 
-btnRegister.onclick = () => {
+btnRegister.onclick = function () {
   roomName = inputRoom.value;
   userName = inputName.value;
+
   if (roomName === "" || userName === "") {
-    alert("Room and name are required");
+    alert("Room and Name are required!");
   } else {
     let message = {
       event: "joinRoom",
-      userName,
-      roomName,
+      userName: userName,
+      roomName: roomName,
     };
-
     sendMessage(message);
     divRoomSelection.style = "display: none";
     divMeetingRoom.style = "display: block";
   }
 };
 
+// messages handlers
 socket.on("message", (message) => {
-  console.log("Message arrived ", message.event);
+  console.log("Message received: " + message.event);
 
   switch (message.event) {
     case "newParticipantArrived":
-      receiveVideo(message.userid, message.userName);
+      receiveVideo(message.userid, message.username);
       break;
     case "existingParticipants":
       onExistingParticipants(message.userid, message.existingUsers);
@@ -48,25 +51,22 @@ socket.on("message", (message) => {
   }
 });
 
-function sendMessage(message) {
-  socket.emit("message", message);
-}
-
-function receiveVideo(userid, userName) {
+// handlers functions
+function receiveVideo(userid, username) {
   let video = document.createElement("video");
   let div = document.createElement("div");
   div.className = "videoContainer";
   let name = document.createElement("div");
   video.id = userid;
   video.autoplay = true;
-  name.appendChild(document.createTextNode(userName));
+  name.appendChild(document.createTextNode(username));
   div.appendChild(video);
   div.appendChild(name);
   divMeetingRoom.appendChild(div);
 
   let user = {
     id: userid,
-    userName: userName,
+    username: username,
     video: video,
     rtcPeer: null,
   };
@@ -75,35 +75,38 @@ function receiveVideo(userid, userName) {
 
   let options = {
     remoteVideo: video,
-    onIceCandidate: onIceCandidate,
+    onicecandidate: onIceCandidate,
   };
 
-  user.rtcPeer = kurentoUtil.WebRtcPeer.WebRtcPeerRecvonly(options, (err) => {
-    if (err) {
-      return console.error(err);
+  user.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(
+    options,
+    function (err) {
+      if (err) {
+        return console.error(err);
+      }
+      this.generateOffer(onOffer);
     }
-    this.generateOffer(onOffer);
-  });
+  );
 
-  let onOffer = (err, offer, wp) => {
+  let onOffer = function (err, offer, wp) {
+    console.log("sending offer");
     let message = {
       event: "receiveVideoFrom",
       userid: user.id,
       roomName: roomName,
-      sdpOfer: offer,
+      sdpOffer: offer,
     };
-
     sendMessage(message);
   };
 
-  function onIceCandidate(candidae, wp) {
+  function onIceCandidate(candidate, wp) {
+    console.log("sending ice candidates");
     let message = {
       event: "candidate",
       userid: user.id,
       roomName: roomName,
-      candidate,
+      candidate: candidate,
     };
-
     sendMessage(message);
   }
 }
@@ -122,7 +125,7 @@ function onExistingParticipants(userid, existingUsers) {
 
   let user = {
     id: userid,
-    userName: userName,
+    username: userName,
     video: video,
     rtcPeer: null,
   };
@@ -141,41 +144,44 @@ function onExistingParticipants(userid, existingUsers) {
   };
 
   let options = {
-    remoteVideo: video,
-    onIceCandidate: onIceCandidate,
+    localVideo: video,
     mediaConstraints: constraints,
+    onicecandidate: onIceCandidate,
   };
 
-  user.rtcPeer = kurentoUtil.WebRtcPeer.WebRtcPeerSendvonly(options, (err) => {
-    if (err) {
-      return console.error(err);
+  user.rtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(
+    options,
+    function (err) {
+      if (err) {
+        return console.error(err);
+      }
+      this.generateOffer(onOffer);
     }
-    this.generateOffer(onOffer);
+  );
+
+  existingUsers.forEach(function (element) {
+    receiveVideo(element.id, element.name);
   });
 
-  existingUsers.forEach((user) => {
-    receiveVideo(user.id), user.name;
-  });
-
-  let onOffer = (err, offer, wp) => {
+  let onOffer = function (err, offer, wp) {
+    console.log("sending offer");
     let message = {
       event: "receiveVideoFrom",
       userid: user.id,
       roomName: roomName,
-      sdpOfer: offer,
+      sdpOffer: offer,
     };
-
     sendMessage(message);
   };
 
-  function onIceCandidate(candidae, wp) {
+  function onIceCandidate(candidate, wp) {
+    console.log("sending ice candidates");
     let message = {
       event: "candidate",
       userid: user.id,
       roomName: roomName,
-      candidate,
+      candidate: candidate,
     };
-
     sendMessage(message);
   }
 }
@@ -186,4 +192,10 @@ function onReceiveVideoAnswer(senderid, sdpAnswer) {
 
 function addIceCandidate(userid, candidate) {
   participants[userid].rtcPeer.addIceCandidate(candidate);
+}
+
+// utilities
+function sendMessage(message) {
+  console.log("sending " + message.event + " message to server");
+  socket.emit("message", message);
 }
