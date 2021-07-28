@@ -1,1 +1,50 @@
-<mxfile host="app.diagrams.net" modified="2021-07-28T09:11:09.598Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36" version="14.8.4" etag="EEVYRi60H6gFR3b_DQZB" type="github"><diagram id="M8-sxqGqLeDvhWGZNvM7">UzV2zq1wL0osyPDNT0nNUTV2VTV2LsrPL4GwciucU3NyVI0MMlNUjV1UjYwMgFjVyA2HrCFY1qAgsSg1rwSLBiADYTaQg2Y1AA==</diagram></mxfile>
+<mxfile host="app.diagrams.net" modified="2021-07-28T09:16:50.969Z" agent="5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36" etag="2Xi-Pd155XxowkC0xwSU" version="14.8.4" type="github">
+  <diagram id="M8-sxqGqLeDvhWGZNvM7" name="Page-1">
+    <mxGraphModel dx="1582" dy="717" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-3" value="&lt;span&gt;io.on(&#39;connection)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-250" y="207" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-4" value="joinRoom(socket, username, roomname, callback)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="133" y="39" width="306" height="53" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-5" value="receiveVideoFrom(socket, userid, roomname, sdpOffer, callback)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="199" y="209" width="378" height="61" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-6" value="addIceCandidate(socket, senderid, roomname, iceCandidate, callback)" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="138" y="387" width="422" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-8" value="" style="endArrow=classic;html=1;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-116" y="236.5" as="sourcePoint" />
+            <mxPoint x="-52" y="236.5" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-10" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="mVjBr7OVHxoptxPdOvyU-9" target="mVjBr7OVHxoptxPdOvyU-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-14" value="joinRoom" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="mVjBr7OVHxoptxPdOvyU-10">
+          <mxGeometry x="0.2551" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-11" value="&lt;meta charset=&quot;utf-8&quot;&gt;&lt;span style=&quot;color: rgb(0, 0, 0); font-family: helvetica; font-size: 12px; font-style: normal; font-weight: 400; letter-spacing: normal; text-align: center; text-indent: 0px; text-transform: none; word-spacing: 0px; background-color: rgb(255, 255, 255); display: inline; float: none;&quot;&gt;receiveVideoFrom&lt;/span&gt;" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="mVjBr7OVHxoptxPdOvyU-9" target="mVjBr7OVHxoptxPdOvyU-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-12" style="edgeStyle=none;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="mVjBr7OVHxoptxPdOvyU-9" target="mVjBr7OVHxoptxPdOvyU-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-15" value="candidate" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="mVjBr7OVHxoptxPdOvyU-12">
+          <mxGeometry x="-0.1841" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mVjBr7OVHxoptxPdOvyU-9" value="message.event" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-46" y="186" width="105" height="102" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
