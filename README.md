@@ -1,3 +1,3 @@
 # webrtc_kms_signaling
-npm install
-npm start
+- npm install
+- npm start
